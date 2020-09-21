@@ -492,19 +492,22 @@ module top(
                                                     end 
                                                     4'b1100: begin
                                                         case( stackTop)
+                                                            default: begin
+                                                                newStackTop = memoryInput;
+                                                            end 
                                                             16'hf000: begin
                                                                 newStackTop = { 8'b0, uartInBuffer[uartInBufferNext] };
                                                                 uartInBufferNext = uartInBufferNext + 1;
                                                             end 
                                                             16'hf001: begin
                                                                 newStackTop = {14'b0, ( uartOutBufferTop + 1 == uartOutBufferNext ), ~(uartInBufferNext == uartInBufferTop)};
-                                                                //newStackTop = {14'b0, uart_in_valid, ~(uartInBufferNext == uartInBufferTop)};
                                                             end 
+                                                            16'hf002: begin
+                                                                // OUTPUT to rgbLED
+                                                                newStackTop = setRGB;
+                                                            end
                                                             16'hf003: begin
                                                                 newStackTop = {12'b0, buttons};
-                                                            end 
-                                                            default: begin
-                                                                newStackTop = memoryInput;
                                                             end 
                                                         endcase
                                                     end 
@@ -551,24 +554,27 @@ module top(
                                             newPC <= pcPlusOne;
                                         end
                                         
-                                        // n2memt mem[t] = n
+                                        // n2memt mem[t] = n WRITE to SPRAM or UART/LED
                                         if( instruction[5] ) begin
                                             case( stackTop )  
-                                                default: begin
-                                                    // WRITE to SPRAM
-                                                    sram_address <= stackTop >> 1;
-                                                    sram_data_write <= stackNext;
-                                                    sram_readwrite <= 1;
-                                                end
                                                 16'hf000: begin
                                                     // OUTPUT to UART via buffer
                                                     uartOutBuffer[uartOutBufferTop] <= stackNext[7:0];
                                                     uartOutBufferTop <= uartOutBufferTop + 1;
                                                 end 
-                                                16'hf002: begin
+                                                
+                                                16'hf002: 
                                                     // OUTPUT to rgbLED
                                                     setRGB <= stackNext;
-                                                end
+
+                                                default: begin
+                                                    // WRITE to SPRAM
+                                                    sram_address <= stackTop >> 1;
+                                                    sram_data_write <= stackNext;
+                                                    sram_readwrite <= 1;
+                                                end 
+                                                
+                                               
                                             endcase
                                         end
                                     end // ALU 
@@ -579,12 +585,10 @@ module top(
                         
                         11: begin
                             // Write to dstack and rstack
-                            if( dstackWrite ) begin
+                            if( dstackWrite ) 
                                 dstack[newDSP] <= stackTop;
-                            end
-                            if( rstackWrite ) begin
+                            if( rstackWrite ) 
                                 rstack[newRSP] <= rstackWData;
-                            end
                         end 
                         
                         13: begin
@@ -595,10 +599,11 @@ module top(
                             rsp <= newRSP;
                         end 
                         
+                        
                         15: begin
                             // reset sram_readwrite
-                            sram_readwrite <= 0;
-                        end 
+                            sram_readwrite <= 0; 
+                        end
                         
                         default: begin
                         end 
