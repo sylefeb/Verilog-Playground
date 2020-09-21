@@ -209,7 +209,7 @@ module top(
     assign usb_dp_pu = 1'b1;
     
     // j1eforth ROM
-    reg [15:0]  rom[0:3337]; initial $readmemh("j1eforth-plus/j1.hex", rom);
+    reg [15:0]  rom[0:3336]; initial $readmemh("j1eforth-plus/j1.hex", rom);
     
     // CYCLE to control each stage
     // CYCLE allows 1 clk_48mhz cycle for BRAM access and 3 clk_48mhz cycles for SPRAM access
@@ -272,10 +272,13 @@ module top(
     // value read from SPRAM
     reg [15:0]  memoryInput;
 
-    // UART input buffer
+    // UART input and output buffers
     reg [7:0]   uartInBuffer [0:31];
     reg [4:0]   uartInBufferNext = 0;
     reg [4:0]   uartInBufferTop = 0;
+    reg [7:0]   uartOutBuffer [0:31];
+    reg [4:0]   uartOutBufferNext = 0;
+    reg [4:0]   uartOutBufferTop = 0;
     
     // READ from BRAM ROM
     always @(posedge clk_48mhz) begin
@@ -283,6 +286,10 @@ module top(
             bramREAD <= rom[copyaddress];
     end
 
+    // UART
+    always @(posedge clk_48mhz) begin
+    end 
+    
     // MAIN LOOP
     always @(posedge clk_48mhz) begin
     
@@ -338,7 +345,7 @@ module top(
                             copyaddress = copyaddress + 1;
                         end
                         15: begin
-                            if( copyaddress == 3337 ) begin
+                            if( copyaddress == 3336 ) begin
                                 INIT <= 2;
                                 copyaddress <= 0;
                                 bramENABLE = 0;
@@ -363,9 +370,16 @@ module top(
                 3: begin // MAIN J1 CPU LOOP
                     // READ from UART if character available and store
                     if( uart_out_valid ) begin
-                        uartInBuffer[uartInBufferTop] = uart_out_data;
-                        uartInBufferTop = uartInBufferTop + 1;
-                        uart_out_ready = 1;
+                        uartInBuffer[uartInBufferTop] <= uart_out_data;
+                        uart_out_ready <= 1;
+                        uartInBufferTop <= uartInBufferTop + 1;
+                    end 
+                    
+                    // WRITE to UART if characters in buffer and UART is ready
+                    if( ~(uartOutBufferNext == uartOutBufferTop) & ~( uart_in_valid ) ) begin
+                        uart_in_data <= uartOutBuffer[uartOutBufferNext];
+                        uart_in_valid <= 1;
+                        uartOutBufferNext <= uartOutBufferNext + 1;
                     end 
                     
                     case( CYCLE )
@@ -483,7 +497,8 @@ module top(
                                                                 uartInBufferNext = uartInBufferNext + 1;
                                                             end 
                                                             16'hf001: begin
-                                                                newStackTop = {14'b0, uart_in_valid, ~(uartInBufferNext == uartInBufferTop)};
+                                                                newStackTop = {14'b0, ( uartOutBufferTop + 1 == uartOutBufferNext ), ~(uartInBufferNext == uartInBufferTop)};
+                                                                //newStackTop = {14'b0, uart_in_valid, ~(uartInBufferNext == uartInBufferTop)};
                                                             end 
                                                             16'hf003: begin
                                                                 newStackTop = {12'b0, buttons};
@@ -546,9 +561,9 @@ module top(
                                                     sram_readwrite <= 1;
                                                 end
                                                 16'hf000: begin
-                                                    // OUTPUT to UART
-                                                    uart_in_data <= stackNext[7:0];
-                                                    uart_in_valid <= 1;
+                                                    // OUTPUT to UART via buffer
+                                                    uartOutBuffer[uartOutBufferTop] <= stackNext[7:0];
+                                                    uartOutBufferTop <= uartOutBufferTop + 1;
                                                 end 
                                                 16'hf002: begin
                                                     // OUTPUT to rgbLED
@@ -596,7 +611,7 @@ module top(
 
             endcase // INIT
 
-            // Reset UART
+            // Reset UART Output
             if(uart_in_ready & uart_in_valid) begin
                 uart_in_valid <= 0;
             end
