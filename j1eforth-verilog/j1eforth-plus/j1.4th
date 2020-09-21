@@ -68,6 +68,7 @@ a: dsp  0e00 ;
 a: nu<t 0f00 ;
 
 a: t==0 0010 ;
+a: t<>0 0110 ;
 a: n<>t 0210 ;
 a: t+1  0310 ;
 a: t*2  0c10 ;
@@ -101,7 +102,7 @@ variable tlast
 variable tuser
 
 0001 constant =ver
-0000 constant =ext
+0001 constant =ext
 0040 constant =comp
 0080 constant =imed
 7f1f constant =mask
@@ -234,6 +235,7 @@ variable tuser
     t r-1 alu asm[ ;
 
 : 0= ]asm t==0 alu asm[ ;
+: 0<> ]asm t<>0 alu asm[ ;
 : <> ]asm n<>t d-1 alu asm[ ;
 : 1+ ]asm t+1 alu asm[ ;
 
@@ -350,6 +352,7 @@ t: ! ( w a -- ) ! t;
 t: <> <> t;
 t: 0< 0 literal < t;
 t: 0= 0= t;
+t: 0<> 0<> t;
 t: > swap < t;
 t: 0> 0 literal swap < t;
 t: >= < invert t;
@@ -503,7 +506,7 @@ t: number? ( a -- n t | a f )
      else r> r> 2drop 2drop 0 literal
       then dup
    then r> 2drop r> base ! t;
-t: ?rx ( -- c t | f ) f001 literal @ 1 literal and 0= invert t;
+t: ?rx ( -- c t | f ) f001 literal @ 1 literal and 0<> t;
 t: tx! ( c -- )
    begin
     f001 literal @ 2 literal and 0=

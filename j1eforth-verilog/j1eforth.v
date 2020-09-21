@@ -209,7 +209,7 @@ module top(
     assign usb_dp_pu = 1'b1;
     
     // j1eforth ROM
-    reg [15:0]  rom[0:3334]; initial $readmemh("j1eforth-plus/j1.hex", rom);
+    reg [15:0]  rom[0:3337]; initial $readmemh("j1eforth-plus/j1.hex", rom);
     
     // CYCLE to control each stage
     // CYCLE allows 1 clk_48mhz cycle for BRAM access and 3 clk_48mhz cycles for SPRAM access
@@ -338,7 +338,7 @@ module top(
                             copyaddress = copyaddress + 1;
                         end
                         15: begin
-                            if( copyaddress == 3334 ) begin
+                            if( copyaddress == 3337 ) begin
                                 INIT <= 2;
                                 copyaddress <= 0;
                                 bramENABLE = 0;
@@ -510,6 +510,9 @@ module top(
                                                case( instruction[11:8] )
                                                     4'b0000: begin
                                                         newStackTop = {16{(stackTop == 0)}};
+                                                    end 
+                                                    4'b0001: begin
+                                                        newStackTop = ~{16{(stackTop == 0)}};
                                                     end 
                                                     4'b0010: begin
                                                         newStackTop = ~{16{(stackNext == stackTop)}};
