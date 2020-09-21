@@ -1,11 +1,25 @@
 # Verilog-Playground
-Verilog Experiment Area
+My Verilog Coding Experimental Area
 
-## j1eforth-verilog
+## j1eforth-verilog for FOMU
 
-Translation of the j1eforth interactive Forth environment for FOMU translated from Silice to Verilog.
+Translation of the j1eforth interactive Forth environment for FOMU (https://www.crowdsupply.com/sutajio-kosagi/fomu documentation https://workshop.fomu.im/en/latest/) translated from Silice to Verilog.
 
-### Resources on the FOMU
+The original J1 CPU (https://www.excamera.com/sphinx/fpga-j1.html explanatory paper https://www.excamera.com/files/j1.pdf) along with the j1eforth interactive Forth environment (https://github.com/samawati/j1eforth) was written for an FPGA with access to 16384 x 16bit (256kbit) dual port single cycle block ram, whereas the FOMU has 120kbit of block ram. It does however have 1024kbit of single port ram (65536 x 16bit), which is more than sufficient for j1eforth, but it has 2 cycle latency.
+
+j1eforth for FOMU was originally coded in Silice (https://github.com/sylefeb/Silice) due to my limited (i.e. NO) FPGA programming experience. Once this design was working, especially the timings to access the single port ram, I translated it ack to verilog, as an educational experience for myself.
+
+For communicating via a terminal the tinyfpga_bx_usbserial (https://github.com/stef/nb-fomu-hw) was implemented to provide a 115200 baud UART.
+
+## Using j1eforth-verilog on the FOMU
+
+Download the source code from this repository. Ensure that you have the required toolchain installed. Compile (on Linux) with `./fomu_hacker_USB_SPRAM.sh` within the source directory.
+
+Or download the precompiled `build.dfu` file from this repository.
+
+Upload the compiled, or downloaded bitstream to your FOMU with `dfu-util -D build.dfu` and connect via your chosen terminal, for minicom `minicom -D /dev/ttyACM0` (ACM0 may need replacing with an appropriate number on your machine).
+
+## Resources on the FOMU
 Resource usage is considerably reduced compared to Silice https://github.com/sylefeb/Silice @sylefeb is investigating:
 
 ```
