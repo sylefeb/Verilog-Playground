@@ -102,6 +102,8 @@ Binary ALU Operation Code | J1 CPU | J1+ CPU | J1 CPU Forth Word (notes) | J1+ C
 1110 | dsp | | (depth of stacks) | | 
 1111 | NU<T | | < (unsigned) | | 
 
+*I am presently unable to add any further J1+ CPU alu operations to the j1eforth code, as the compiled ROM is no longer functional. Some assistance to add further instructions would be appreciated. I was thinking of - > u> negate abs max min 2* 2/ as these will be simple to add to the J1+ ALUOP case block.*
+
 ### Memory Map
 
 Hexadecimal Address | Usage
@@ -109,7 +111,7 @@ Hexadecimal Address | Usage
 0000 - 3fff | Program code and data
 4000 - 7fff | RAM (written to with `value addr !`, read by `addr @`
 f000 | UART input/output (best to leave to j1eforth to operate via IN/OUT buffers)
-f001 | UART Status (bit 1 = TX buffer full, bit 0 = RX character available, best to leave to h1eforth to operate via IN/OUT buffers)
+f001 | UART Status (bit 1 = TX buffer full, bit 0 = RX character available, best to leave to j1eforth to operate via IN/OUT buffers)
 f002 | RGB LED input/output
 f003 | BUTTONS input
 
