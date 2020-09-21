@@ -81,7 +81,7 @@ the stack delta (the amount to increment or decrement the stack
 by for their respective stacks: return and data)
 ```
 
-The J1+ CPU adds up to 16 new alu operations, by assigning new opcodes to an ALU instruction bit 4.
+The J1+ CPU adds up to 16 new alu operations, by assigning new alu operations by using ALU bit 4 to determine if J1 or J1+ alu operations.
 
 Binary ALU Operation Code | J1 CPU | J1+ CPU | J1 CPU Forth Word (notes) | J1+ CPU Forth Word | J1+ Implemented in j1eforth
 ---- | ---- | ---- | ---- | ---- | ----
