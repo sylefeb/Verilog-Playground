@@ -102,7 +102,7 @@ Binary ALU Operation Code | J1 CPU | J1+ CPU | J1 CPU Forth Word (notes) | J1+ C
 1110 | dsp | | (depth of stacks) | | 
 1111 | NU<T | | < (unsigned) | | 
 
-*I am presently unable to add any further J1+ CPU alu operations to the j1eforth code, as the compiled ROM is no longer functional. Some assistance to add further instructions would be appreciated. I was thinking of - > u> negate abs max min 2* 2/ as these will be simple to add to the J1+ ALUOP case block.*
+*I am presently unable to add any further J1+ CPU alu operations to the j1eforth code, as the compiled ROM is no longer functional. Some assistance to add further instructions would be appreciated. I was thinking of - > u> negate abs max min 2&#42; 2/ as these will be simple to add to the J1+ ALUOP case block.*
 
 ### Memory Map
 
