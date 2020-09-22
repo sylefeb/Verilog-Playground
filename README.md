@@ -84,7 +84,7 @@ by for their respective stacks: return and data)
 The J1+ CPU adds up to 16 new alu operations, by assigning new alu operations by using ALU bit 4 to determine if J1 or J1+ alu operations.
 
 Binary ALU Operation Code | J1 CPU | J1+ CPU | J1 CPU Forth Word (notes) | J1+ CPU Forth Word | J1+ Implemented in j1eforth
----- | ---- | ---- | ---- | ---- | ----
+:----: | :----: | :----: | :----: | :----: | :----:
 0000 | T | T==0 | | 0= | X
 0001 | N | T<>0 | | 0<> | X
 0010 | T+N | N<>T | + | <> | X
@@ -107,7 +107,7 @@ Binary ALU Operation Code | J1 CPU | J1+ CPU | J1 CPU Forth Word (notes) | J1+ C
 ### Memory Map
 
 Hexadecimal Address | Usage
----- | ----
+:----: | :----:
 0000 - 3fff | Program code and data
 4000 - 7fff | RAM (written to with `value addr !`, read by `addr @`
 f000 | UART input/output (best to leave to j1eforth to operate via IN/OUT buffers)
