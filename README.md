@@ -23,11 +23,11 @@ Upload the compiled, or downloaded bitstream to your FOMU with `dfu-util -D buil
 
 ## Resources on the FOMU
 
-Resource usage is considerably reduced using directly coded verilog compared to Silice, with @sylefeb is investigating and looking for improvements to Silice:
+Resource usage:
 
 ```
 Info: Device utilisation:
-Info:            ICESTORM_LC:  2420/ 5280    45%
+Info:            ICESTORM_LC:  2612/ 5280    49%
 Info:           ICESTORM_RAM:    19/   30    63%
 Info:                  SB_IO:    12/   96    12%
 Info:                  SB_GB:     8/    8   100%
@@ -42,6 +42,8 @@ Info:                 IO_I3C:     0/    2     0%
 Info:            SB_LEDDA_IP:     0/    1     0%
 Info:            SB_RGBA_DRV:     1/    1   100%
 Info:         ICESTORM_SPRAM:     4/    4   100%
+
+// Timing estimate: 36.89 ns (27.11 MHz)
 ```
 
 The original J1 CPU has this instruction encoding:
@@ -81,28 +83,36 @@ the stack delta (the amount to increment or decrement the stack
 by for their respective stacks: return and data)
 ```
 
-The J1+ CPU adds up to 16 new alu operations, by assigning new alu operations by using ALU bit 4 to determine if J1 or J1+ alu operations.
+The J1+ CPU adds up to 16 new alu operations, by assigning new alu operations by using ALU bit 4 to determine if J1 or J1+ alu operations, with the ALU instruction encoding:
+
+```
++---------------------------------------------------------------+
+| 0 | 1 | 1 |R2P| ALU OPERATION |T2N|T2R|N2A|J1+| RSTACK| DSTACK|
++---------------------------------------------------------------+
+| F | E | D | C | B | A | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
++---------------------------------------------------------------+
+```
 
 Binary ALU Operation Code | J1 CPU | J1+ CPU | J1 CPU Forth Word (notes) | J1+ CPU Forth Word | J1+ Implemented in j1eforth
 :----: | :----: | :----: | :----: | :----: | :----:
-0000 | T | T==0 | | 0= | X
-0001 | N | T<>0 | | 0<> | X
+0000 | T | T==0 | (top of stack) | 0= | X
+0001 | N | T<>0 | (next on stack) | 0<> | X
 0010 | T+N | N<>T | + | <> | X
 0011 | T&N | T+1 | and | 1+ | X
-0100 | T&#124;N | | or | | 
-0101 | T^N | | xor | | 
-0110 | ~T | | invert | | 
-0111 | N==T | | = | | 
-1000 | N<T | | < (signed) | | 
-1001 | N>>T | | rshift | | 
-1010 | T-1 | | 1- | | 
-1011 |  rt | | (push top of return stack to data stack) | | 
-1100 | [T] | | @ (read from memory) | | 
-1101 | N<<T | | lshift | | 
-1110 | dsp | | (depth of stacks) | | 
-1111 | NU<T | | < (unsigned) | | 
+0100 | T&#124;N | T<<1 | or | 2&#42; | X
+0101 | T^N | T>>1 | xor | 2/ | (stops ROM working)
+0110 | ~T | N>T | invert | > <br> (signed) | X
+0111 | N==T | NU>T | = | > <br> (unsigned) | X
+1000 | N<T | T<0 | < <br> (signed) | 0< | X
+1001 | N>>T | T>0 | rshift | 0> | X
+1010 | T-1 | ABST | 1- | abs | X
+1011 |  rt | MXNT | (push top of return stack to data stack) | max | X
+1100 | [T] | MNNT | @ <br> (read from memory) | min | X
+1101 | N<<T | -T | lshift | negate | X
+1110 | dsp | N-T | (depth of stacks) | - | (stops ROM working)
+1111 | NU<T | N>=T | < <br> (unsigned) | >= <br> (signed) | X
 
-*I am presently unable to add any further J1+ CPU alu operations to the j1eforth code, as the compiled ROM is no longer functional. Some assistance to add further instructions would be appreciated. I was thinking of - > u> negate abs max min 2&#42; 2/ as these will be simple to add to the J1+ ALUOP case block.*
+*I am presently unable to add the 2/ or - to the j1eforth ROM, as the compiled ROM is no longer functional. Some assistance to add these instructions would be appreciated.*
 
 ### Memory Map
 
@@ -112,8 +122,36 @@ Hexadecimal Address | Usage
 4000 - 7fff | RAM (written to with `value addr !`, read by `addr @`
 f000 | UART input/output (best to leave to j1eforth to operate via IN/OUT buffers)
 f001 | UART Status (bit 1 = TX buffer full, bit 0 = RX character available, best to leave to j1eforth to operate via IN/OUT buffers)
-f002 | RGB LED input/output
-f003 | BUTTONS input
+f002 | RGB LED input/output bitfield { 13b0, red, green, blue }
+f003 | BUTTONS input bitfield { 12b0, button 4, button 3, button 2, button 1 }
+
+### INIT stages
+
+Due to the size of the block ram on the FOMU (120kbit or 7680 x 16bit) and the J1+ CPU requiring 256kbit (16384 x 16bit) of RAM, the J1+ CPU on the FOMU copies the j1eforth code from an initialised block ram to SPRAM, and uses the SPRAM for the J1+ CPU.
+
+INIT | Action
+:-----: | :-----:
+0 | 0 the SPRAM. <br> <br> Due to the latency, this is controlled by CYCLE (pipeline).
+1 | COPY the j1eforth ROM to SPRAM. <br> <br> Due to latency, this is controoled by CYCLE (pipeline). <br> <br> The block ram at address [copaddress] is read in a separate always block. This allows the block ram to inferred by yosys.
+2 | SPARE (not used in the J1+ CPU).
+3 | Start the J1+ CPU at pc==0 from SPRAM.
+
+### Pipeline / CYCLE logic
+
+Due to blockram and SPRAM latency, there needs to be a pipeline for the J1+ CPU on the FOMU, which is set to 0 to 12 stages. These are used as follows:
+
+CYCLE | Action
+:-----: | :-----:
+ALL <br> (at entry to INIT==3 loop) | Check for input from the UART, put into buffer. <br> Check if output in the UART buffer and send to UART. <br> __NOTE:__ To stop a race condition, uartOutBufferTop = newuartOutBufferTop is updated after output.
+0 | blockram: Read data stackNext and rstackTop, started in CYCLE==9. <br> <br> SPRAM: Start the read of memory position [stackTop] by setting the SPRAM sram_address and sram_readwrite flag. <br> This is done speculatively in case the ALU needs this memory later in the pipeline.
+3 | Complete read of memory position [stackTop] from SPRAM by reading sram_data_read.
+4 | Start read of the instruction at memory position [pc] by setting sram_address and sram_readwrite flag.
+7 | Complete read of the instruction at memory position [pc] by reading sram_data_read. <br> <br> *The instruction is decoded automatically by the continuos assigns := block at the top of the code.*
+8 | Instruction Execution <br> <br> Determine if LITERAL, BRANCH, BRANCH, CALL or ALU. <br> <br> In the ALU (J1 CPU block) the UART input buffer, UART status register, RGB LED status, input buttons or memory is selected as appropriate. The UART buffers and the speculative memory read of [stackTop] are used to allow __ALL__ ALU operations to execute in one cycle.<br> <br> At the end of the ALU if a write to memory is required, this is initiated by setting the sram_address, sram_data_write and sram_readwrite flag. This will be completed by CYCLE==12. <br> <br> Output to UART output buffer or the RGB LED is performed here if a write to an I/O address, not memory, is requested.
+9 | Start the writing to the block ram for the data and return stacks. This will be completed by CYCLE==10.
+10 | Update all of the J1+ CPU pointers for the data and return stacks, the program counter, and stackTop. <br> <br> Start the reading of the data and return stacks. This will be completed by CYCLE==11, but not actually read until the return to CYCLE==0.
+12 | Reset the sram_readwrite flag, to complete any memory write started in CYCLE==8 in the ALU.
+ALL <br> (at end of INIT==3 loop) | Reset the UART output if any character was transmitted. <br> <br> Move to the next CYCLE.
 
 ### Forth Words to try
 * `cold` reset
