@@ -279,6 +279,7 @@ module top(
     reg [7:0]   uartOutBuffer [0:31];
     reg [4:0]   uartOutBufferNext = 0;
     reg [4:0]   uartOutBufferTop = 0;
+    reg [4:0]   newUartOutBufferTop = 0;
     
     // READ from BRAM ROM
     always @(posedge clk_48mhz) begin
@@ -305,6 +306,9 @@ module top(
 
             uartInBufferNext <= 0;
             uartInBufferTop <= 0;
+            uartOutBufferNext <= 0;
+            uartOutBufferTop <= 0;
+            newUartOutBufferTop <= 0;
         end else begin
         
             case( INIT )
@@ -316,11 +320,11 @@ module top(
                             sram_data_write <= 0;
                             sram_readwrite <= 1;
                         end 
-                        14: begin
+                        11: begin
                             sram_readwrite <= 0;
                             copyaddress = copyaddress + 1;
                         end
-                        15: begin
+                        12: begin
                             if( copyaddress == 16384 ) begin
                                 INIT <= 1;
                                 copyaddress <= 0;
@@ -340,12 +344,12 @@ module top(
                             sram_data_write <= bramREAD;
                             sram_readwrite <= 1;
                         end 
-                        14: begin
+                        11: begin
                             sram_readwrite <= 0;
                             copyaddress = copyaddress + 1;
                         end
-                        15: begin
-                            if( copyaddress == 3336 ) begin
+                        12: begin
+                            if( copyaddress == 4096 ) begin
                                 INIT <= 2;
                                 copyaddress <= 0;
                                 bramENABLE = 0;
@@ -359,7 +363,7 @@ module top(
                 2: begin // SPARE INIT 
                     bramENABLE = 1;
                     case( CYCLE )
-                        15: begin
+                        12: begin
                                 INIT <= 3;
                         end 
                         default: begin
@@ -381,6 +385,7 @@ module top(
                         uart_in_valid <= 1;
                         uartOutBufferNext <= uartOutBufferNext + 1;
                     end 
+                    uartOutBufferTop = newUartOutBufferTop;
                     
                     case( CYCLE )
                         0: begin
@@ -393,23 +398,23 @@ module top(
                             sram_readwrite <= 0;
                         end 
                         
-                        4: begin
+                        3: begin
                             // wait then read the data from SPRAM
                             memoryInput <= sram_data_read;
                         end 
                         
-                        5: begin
+                        4: begin
                             // start READ instruction = [pc] result ready in 2 cycles
                             sram_address <= pc;
                             sram_readwrite <= 0;
                         end 
                         
-                        9: begin
+                        7: begin
                             // wait then read the instruction from SPRAM
                             instruction = sram_data_read;
                         end 
                         
-                        10: begin
+                        8: begin
                             // J1 CPU instruction execute
                             if( is_lit ) begin 
                                 // LITERAL Push value onto stack
@@ -430,11 +435,7 @@ module top(
                                     2'b01: begin
                                         // 0BRANCH
                                         newStackTop <= stackNext;
-                                        if( stackTop == 0 ) begin
-                                            newPC <= instruction[12:0];
-                                        end else begin
-                                            newPC <= pcPlusOne;
-                                        end
+                                        newPC <= ( stackTop == 0 ) ? instruction[12:0] : pcPlusOne;
                                         newDSP <= dsp - 1;
                                         newRSP <= rsp;
                                     end 
@@ -454,90 +455,55 @@ module top(
                                             1'b0: begin
                                                 // J1 ALUOP
                                                 case( instruction[11:8] )
-                                                    4'b0000: begin
-                                                        newStackTop = stackTop;
-                                                    end 
-                                                    4'b0001: begin
-                                                        newStackTop = stackNext;
-                                                    end 
-                                                    4'b0010: begin
-                                                        newStackTop = stackTop + stackNext;
-                                                    end 
-                                                    4'b0011: begin
-                                                        newStackTop = stackTop & stackNext;
-                                                    end 
-                                                    4'b0100: begin
-                                                        newStackTop = stackTop | stackNext;
-                                                    end 
-                                                    4'b0101: begin
-                                                        newStackTop = stackTop ^ stackNext;
-                                                    end 
-                                                    4'b0110: begin
-                                                        newStackTop = ~stackTop;
-                                                    end 
-                                                    4'b0111: begin
-                                                        newStackTop = {16{(stackNext == stackTop)}};
-                                                    end 
-                                                    4'b1000: begin
-                                                        newStackTop = {16{($signed(stackNext) < $signed(stackTop))}};
-                                                    end 
-                                                    4'b1001: begin
-                                                        newStackTop = stackNext >> stackTop[3:0];
-                                                    end 
-                                                    4'b1010: begin
-                                                        newStackTop = stackTop - 1;
-                                                    end 
-                                                    4'b1011: begin
-                                                        newStackTop = rStackTop;
-                                                    end 
+                                                    4'b0000: newStackTop = stackTop;
+                                                    4'b0001: newStackTop = stackNext;
+                                                    4'b0010: newStackTop = stackTop + stackNext;
+                                                    4'b0011: newStackTop = stackTop & stackNext;
+                                                    4'b0100: newStackTop = stackTop | stackNext;
+                                                    4'b0101: newStackTop = stackTop ^ stackNext;
+                                                    4'b0110: newStackTop = ~stackTop;
+                                                    4'b0111: newStackTop = {16{(stackNext == stackTop)}};
+                                                    4'b1000: newStackTop = {16{($signed(stackNext) < $signed(stackTop))}};
+                                                    4'b1001: newStackTop = stackNext >> stackTop[3:0];
+                                                    4'b1010: newStackTop = stackTop - 1;
+                                                    4'b1011: newStackTop = rStackTop;
                                                     4'b1100: begin
                                                         case( stackTop)
-                                                            default: begin
-                                                                newStackTop = memoryInput;
-                                                            end 
                                                             16'hf000: begin
                                                                 newStackTop = { 8'b0, uartInBuffer[uartInBufferNext] };
                                                                 uartInBufferNext = uartInBufferNext + 1;
                                                             end 
-                                                            16'hf001: begin
-                                                                newStackTop = {14'b0, ( uartOutBufferTop + 1 == uartOutBufferNext ), ~(uartInBufferNext == uartInBufferTop)};
-                                                            end 
-                                                            16'hf002: begin
-                                                                // OUTPUT to rgbLED
-                                                                newStackTop = setRGB;
-                                                            end
-                                                            16'hf003: begin
-                                                                newStackTop = {12'b0, buttons};
-                                                            end 
+                                                            16'hf001: newStackTop = {14'b0, ( uartOutBufferTop + 1 == uartOutBufferNext ), ~(uartInBufferNext == uartInBufferTop)}; // Read UART status
+                                                            16'hf002: newStackTop = setRGB; // Read to rgbLED status
+                                                            16'hf003: newStackTop = {12'b0, buttons}; // Read buttons status
+                                                            default: newStackTop = memoryInput; // memoryInput
                                                         endcase
                                                     end 
-                                                    4'b1101: begin
-                                                        newStackTop = stackNext << stackTop[3:0];
-                                                    end 
-                                                    4'b1110: begin
-                                                        newStackTop = {rsp, 3'b000, dsp};
-                                                    end 
-                                                    4'b1111: begin
-                                                        newStackTop = {16{($unsigned(stackNext) < $unsigned(stackTop))}};
-                                                    end 
+                                                    4'b1101: newStackTop = stackNext << stackTop[3:0];
+                                                    4'b1110: newStackTop = {rsp, 3'b000, dsp};
+                                                    4'b1111: newStackTop = {16{($unsigned(stackNext) < $unsigned(stackTop))}};
                                                 endcase
                                             end 
                                             
                                             1'b1: begin
                                                 // J1+ ALUOP
                                                case( instruction[11:8] )
-                                                    4'b0000: begin
-                                                        newStackTop = {16{(stackTop == 0)}};
-                                                    end 
-                                                    4'b0001: begin
-                                                        newStackTop = ~{16{(stackTop == 0)}};
-                                                    end 
-                                                    4'b0010: begin
-                                                        newStackTop = ~{16{(stackNext == stackTop)}};
-                                                    end 
-                                                    4'b0011: begin
-                                                        newStackTop = stackTop + 1;
-                                                    end 
+                                                    4'b0000: newStackTop = {16{(stackTop == 0)}};
+                                                    4'b0001: newStackTop = ~{16{(stackTop == 0)}};
+                                                    4'b0010: newStackTop = ~{16{(stackNext == stackTop)}};
+                                                    4'b0011: newStackTop = stackTop + 1;
+                                                    4'b0100: newStackTop = stackTop << 1;
+                                                    4'b0101: newStackTop = stackTop >> 1;
+                                                    4'b0110: newStackTop = {16{($signed(stackNext) > $signed(stackTop))}};
+                                                    4'b0111: newStackTop = {16{($unsigned(stackNext) > $unsigned(stackTop))}};
+                                                    4'b1000: newStackTop = {16{($signed(stackTop) < 0)}};
+                                                    4'b1001: newStackTop = {16{($signed(stackTop) > 0)}};
+                                                    4'b1010: newStackTop = ( $signed(stackTop) < 0 ) ?  - stackTop : stackTop;
+                                                    4'b1011: newStackTop = ( $signed(stackNext) > $signed(stackTop) ) ? stackNext : stackTop;
+                                                    4'b1100: newStackTop = ( $signed(stackNext) < $signed(stackTop) ) ? stackNext : stackTop;
+                                                    4'b1101: newStackTop = -stackTop;
+                                                    4'b1110: newStackTop = stackNext - stackTop;
+                                                    4'b1111: newStackTop = {16{($signed(stackNext) >= $signed(stackTop))}};
                                                 endcase
                                             end 
                                         endcase // J1 / J1+
@@ -547,12 +513,8 @@ module top(
                                         newRSP <= rsp + rdelta;
                                         rstackWData <= stackTop;
                                         
-                                        // r2pc
-                                        if( instruction[12] ) begin
-                                            newPC <= rStackTop >> 1;
-                                        end else begin
-                                            newPC <= pcPlusOne;
-                                        end
+                                        // r2pc - return from call or next instruction
+                                        newPC <= ( instruction[12] ) ? rStackTop >> 1 : pcPlusOne;
                                         
                                         // n2memt mem[t] = n WRITE to SPRAM or UART/LED
                                         if( instruction[5] ) begin
@@ -560,12 +522,10 @@ module top(
                                                 16'hf000: begin
                                                     // OUTPUT to UART via buffer
                                                     uartOutBuffer[uartOutBufferTop] <= stackNext[7:0];
-                                                    uartOutBufferTop <= uartOutBufferTop + 1;
+                                                    newUartOutBufferTop <= uartOutBufferTop + 1;
                                                 end 
                                                 
-                                                16'hf002: 
-                                                    // OUTPUT to rgbLED
-                                                    setRGB <= stackNext;
+                                                16'hf002: setRGB <= stackNext; // OUTPUT to rgbLED
 
                                                 default: begin
                                                     // WRITE to SPRAM
@@ -573,8 +533,6 @@ module top(
                                                     sram_data_write <= stackNext;
                                                     sram_readwrite <= 1;
                                                 end 
-                                                
-                                               
                                             endcase
                                         end
                                     end // ALU 
@@ -583,7 +541,7 @@ module top(
                             end // not is_lit
                         end  // J1 CPU Instruction execute
                         
-                        11: begin
+                        9: begin
                             // Write to dstack and rstack
                             if( dstackWrite ) 
                                 dstack[newDSP] <= stackTop;
@@ -591,7 +549,7 @@ module top(
                                 rstack[newRSP] <= rstackWData;
                         end 
                         
-                        13: begin
+                        10: begin
                             // Update dsp, rsp, pc, stackTop
                             dsp <= newDSP;
                             pc <= newPC;
@@ -600,7 +558,7 @@ module top(
                         end 
                         
                         
-                        15: begin
+                        12: begin
                             // reset sram_readwrite
                             sram_readwrite <= 0; 
                         end
@@ -617,11 +575,11 @@ module top(
             endcase // INIT
 
             // Reset UART Output
-            if(uart_in_ready & uart_in_valid) begin
+            if(uart_in_ready & uart_in_valid)
                 uart_in_valid <= 0;
-            end
             
-            CYCLE = CYCLE + 1;
+            // Move to next CYCLE ( 0 to 12 , then back to 0 )
+            CYCLE = ( CYCLE == 12 ) ? 0 : CYCLE + 1;
                         
         
         end // NOT RESET
