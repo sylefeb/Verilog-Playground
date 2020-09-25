@@ -49,6 +49,18 @@ module top(
     );
     assign clk_48mhz = clk;
 
+    // Create 1hz (1 second counter)
+    reg [31:0] counter48mhz;
+    reg [15:0] counter1hz;
+    always @(posedge clk_48mhz) begin
+        if( counter48mhz == 48000000 ) begin
+            counter1hz <= counter1hz + 1;
+            counter48mhz <= 0;
+        end else begin
+            counter48mhz <= counter48mhz + 1;
+        end
+    end 
+    
     // RGB LED Driver
     reg [2:0] setRGB;
     SB_RGBA_DRV #(
@@ -476,6 +488,7 @@ module top(
                                                             16'hf001: newStackTop = {14'b0, ( uartOutBufferTop + 1 == uartOutBufferNext ), ~(uartInBufferNext == uartInBufferTop)}; // Read UART status
                                                             16'hf002: newStackTop = setRGB; // Read to rgbLED status
                                                             16'hf003: newStackTop = {12'b0, buttons}; // Read buttons status
+                                                            16'hf004: newStackTop = counter1hz; // Read number of seconds since boot
                                                             default: newStackTop = memoryInput; // memoryInput
                                                         endcase
                                                     end 

@@ -124,6 +124,7 @@ f000 | UART input/output (best to leave to j1eforth to operate via IN/OUT buffer
 f001 | UART Status (bit 1 = TX buffer full, bit 0 = RX character available, best to leave to j1eforth to operate via IN/OUT buffers)
 f002 | RGB LED input/output bitfield { 13b0, red, green, blue }
 f003 | BUTTONS input bitfield { 12b0, button 4, button 3, button 2, button 1 }
+f004 | TIMER input number of seconds since boot `timer` pushes the number of seconds since boot to the stack
 
 ### INIT stages
 
