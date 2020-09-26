@@ -27,7 +27,7 @@ Resource usage:
 
 ```
 Info: Device utilisation:
-Info:            ICESTORM_LC:  2612/ 5280    49%
+Info:            ICESTORM_LC:  2681/ 5280    50%
 Info:           ICESTORM_RAM:    19/   30    63%
 Info:                  SB_IO:    12/   96    12%
 Info:                  SB_GB:     8/    8   100%
@@ -43,7 +43,7 @@ Info:            SB_LEDDA_IP:     0/    1     0%
 Info:            SB_RGBA_DRV:     1/    1   100%
 Info:         ICESTORM_SPRAM:     4/    4   100%
 
-// Timing estimate: 36.89 ns (27.11 MHz)
+// Timing estimate: 37.34 ns (26.78 MHz)
 ```
 
 The original J1 CPU has this instruction encoding:
@@ -118,13 +118,12 @@ Binary ALU Operation Code | J1 CPU | J1+ CPU | J1 CPU Forth Word (notes) | J1+ C
 
 Hexadecimal Address | Usage
 :----: | :----:
-0000 - 3fff | Program code and data
-4000 - 7fff | RAM (written to with `value addr !`, read by `addr @`
-f000 | UART input/output (best to leave to j1eforth to operate via IN/OUT buffers)
-f001 | UART Status (bit 1 = TX buffer full, bit 0 = RX character available, best to leave to j1eforth to operate via IN/OUT buffers)
-f002 | RGB LED input/output bitfield { 13b0, red, green, blue }
+0000 - 7fff | Program code and data
+f000 | UART input/output (best to leave to j1eforth to operate via IN/OUT buffers).
+f001 | UART Status (bit 1 = TX buffer full, bit 0 = RX character available, best to leave to j1eforth to operate via IN/OUT buffers).
+f002 | RGB LED input/output bitfield { 13b0, red, green, blue } `rgbled rgb!` sets the RGB LED, `rgb@` places the RGB LED status onto the stack.
 f003 | BUTTONS input bitfield { 12b0, button 4, button 3, button 2, button 1 }
-f004 | TIMER input number of seconds since boot `timer` pushes the number of seconds since boot to the stack
+f004 | TIMER 1hz (1 second) counter since boot, `timer@` places the timer onto the stack
 
 ### INIT stages
 
@@ -161,5 +160,30 @@ ALL <br> (at end of INIT==3 loop) | Reset the UART output if any character was t
 * `2a emit` output a * (character 2a (hex) 42 (decimal)
 * `decimal` use decimal notation
 * `hex` use hexadecimal notation
+
+### Sample Code
+
+This can be copied and pasted into the terminal. Try to keep line lengths relatively short when cutting and pasting.
+
+```
+: vtcs 1b emit 5b emit 32 emit 4a emit ;
+: vtxy 1b emit 5b emit 0 decimal u.r hex 3b emit 0 decimal u.r hex 48 emit ;
+: rgbtest  
+    100 0 do 
+        vtcs
+        8 1 vtxy timer@ dup 5 decimal u.r hex space ." seconds "
+        rgb! rgb@ 3 
+        2 base ! u.r space ." RGB LED" hex 
+        8000 0 do loop 
+  loop cr 0 rgb! ;
+```
+
+This code defines 3 new Forth words:
+
+* `vtcs` which clears the terminal ( sends ESC [ 2 J )
+* `vtxy` moves the cursor to the position defined by the top two locations on the stack, `8 1 vtxy` moves the cursor to line 1 column 8 ( sends ESC [ 1 ; 8 H )
+* `rgbtest` Loops, clears the screen then displays the number of seconds elapsed whilst changing the RGB LED to the lower 3 bits of the timers, and then displaying the binary status of the RGB LED. Finally turning off the RGB LED.
+
+Start the test with `rgbtest`.
 
 ![j1eforth on FOMU](j1eforth-verilog.png)

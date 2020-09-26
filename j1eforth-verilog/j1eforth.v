@@ -113,7 +113,7 @@ module top(
         .ADDRESS(sram_address),
         .DATAIN(sram_data_in),
         .MASKWREN(4'b1111),
-        .WREN(sram_wren),
+        .WREN(sram_wren & (sram_address[15:14]==2'b00)),
         .CHIPSELECT(sram_address[15:14]==2'b00),
         .CLOCK(clk_48mhz),
         .STANDBY(1'b0),
@@ -125,7 +125,7 @@ module top(
         .ADDRESS(sram_address),
         .DATAIN(sram_data_in),
         .MASKWREN(4'b1111),
-        .WREN(sram_wren),
+        .WREN(sram_wren & (sram_address[15:14]==2'b01)),
         .CHIPSELECT(sram_address[15:14]==2'b01),
         .CLOCK(clk_48mhz),
         .STANDBY(1'b0),
@@ -137,7 +137,7 @@ module top(
         .ADDRESS(sram_address),
         .DATAIN(sram_data_in),
         .MASKWREN(4'b1111),
-        .WREN(sram_wren),
+        .WREN(sram_wren & (sram_address[15:14]==2'b10)),
         .CHIPSELECT(sram_address[15:14]==2'b10),
         .CLOCK(clk_48mhz),
         .STANDBY(1'b0),
@@ -149,7 +149,7 @@ module top(
         .ADDRESS(sram_address),
         .DATAIN(sram_data_in),
         .MASKWREN(4'b1111),
-        .WREN(sram_wren),
+        .WREN(sram_wren & (sram_address[15:14]==2'b11)),
         .CHIPSELECT(sram_address[15:14]==2'b11),
         .CLOCK(clk_48mhz),
         .STANDBY(1'b0),
@@ -337,7 +337,7 @@ module top(
                             copyaddress = copyaddress + 1;
                         end
                         12: begin
-                            if( copyaddress == 16384 ) begin
+                            if( copyaddress == 32768 ) begin
                                 INIT <= 1;
                                 copyaddress <= 0;
                             end 
